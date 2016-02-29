@@ -1,83 +1,63 @@
 #!/bin/sh
-
 #
-# $1 - name of config file
-# $2 - filename
-# $3 - time duration
-# $4 - debug on(="-d")/off(!="-d")
+# 2008_01_15
+# Gleb GByte Poljakov
+# ver: 0.04
+#
 
-#TODO:
+# -o $FILE
+# -u #URL
+# -t $duration
+# -d $debug_level
 
+# Procedure for writing debug messages
+# $1 - message, $2 - level of the message (error, warning, notify)
+    msg (){
+	[ $2 -le $debug ] && logger -t "$log_tag" "$1"
+    }
 
-#Load config file
-    config="$1"						#config file name
-    . $config
+#Procedure for stoping wget-process    
+    stop (){
+	set +bm;
+	kill -9 $wget_pid > /dev/null;
+    }
 
 #System vars
-    record="$2"
-    duration="$3"
-    debug="$4"
+    log_tag="Ice-Rec v0.03"
+    debug="1"					#debug level
 
-    recorder_pid="$$"
-    log_tag="Recorder v0.01 [${recorder_pid}]"
-    fifo="${recorder_pid_file}.${recorder_pid}.fifo"			#audio stream: ALSARecorder -> AAC+ Encoder
+#parse command line
+    while getopts t:d:o:u: opt
+    do
+	case "$opt" in
+	    t)	duration="$OPTARG";;
+	    d)	debug="$OPTARG";;
+	    o)	FILE="$OPTARG";;
+	    u)	URL="$OPTARG";;
+	    \?)				#unknown
+		echo >&2 \
+		"usage: $0 -t time_duration -u URL -o DIR [-d debug_level]"
+		exit 1;;
+	esac
+    done
+    shift `expr $OPTIND - 1`
 
-# trap
-stop (){
-    #stop traping signals CHLD INT TERM
-    set +bm
+#Check for correct variables values:
+    if [ -z "$duration" ]; then
+	msg 'Expected -t time_duration!' 0
+	exit 1;
+    fi;
 
-    if [ "$debug" = "-d" ]; then logger -t $log_tag "Get stop-signal... stoping..";fi;
+#    [ ! -d ${DIR} ] && mkdir -p ${DIR}
+#    cd ${DIR}
 
-    #Now killing child proceses
-	if [ -n "`ps h -p $encoder_pid`" ]
-	then
-	    if [ "$debug" = "-d" ]; then logger -t $log_tag "Kill Encoder";fi;
-	    kill -9 $encoder_pid
-	fi
-	if [ -n "`ps h -p $arecord_pid`" ]
-        then
-            if [ "$debug" = "-d" ]; then logger -t $log_tag "Kill ALSA Recorder";fi;
-	    kill -9 $arecord_pid
-	fi
+#Run
+    wget -t 0 -q --no-proxy ${URL} -O ${FILE} &
+    wget_pid="$!"
 
-    #remove audio fifo
-	if [ -p $fifo ]; then rm $fifo;fi;
+    sleep $duration &
+    sleep_pid="$!"
 
-    #rm $recorder_pid_file
-    if [ "$debug" = "-d" ]; then logger -t $log_tag "Stop.";fi;
-
-    exit 0
-}
-
-#Main
-    if [ "$debug" = "-d" ]; then logger -t $log_tag "Start recording";fi;
-    
-    #create audio fifo
-    if [ -e $fifo ]; then rm $fifo; fi;
-    mkfifo $fifo;
-
-    arecord -D $card --nonblock --file-type wav --quiet --channels=2 -f cd > $fifo &
-    arecord_pid="$!"
-
-    /usr/local/bin/lame --cbr -b $bitrate -q 9 -a --quiet --resample $sample_rate $fifo $record &
-    encoder_pid="$!"
-
-#    aacplusenc $fifo $record $bitrate s 2> /dev/null &
-#    aacplusenc_pid="$!"
-
-#    echo $recorder_pid > $recorder_pid_file
-
-#Set traps on SIGCHLD SIGINT SIGTERM
-    if [ -n "$duration" ]
-    then
-	sleep $duration &
-	wait_for_pid="$!"
-    else
-	wait_for_pid=""
-    fi
-
-    set -bm
-    trap 'stop' EXIT QUIT HUP CHLD INT TERM
-    wait $wait_for_pid
-#End
+set -bm
+trap 'stop' TERM INT CHLD
+wait $sleep_pid
