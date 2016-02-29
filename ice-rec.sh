@@ -1,14 +1,15 @@
 #!/bin/sh -x
 #
-# 2008_01_15
-# Gleb GByte Poljakov
-ver="0.05"
+# Date: 2008_01_15
+# Author: Gleb GByte Poljakov
+# e-mail: gleb.poljakov@gmail.com
+#
+ver="0.06"
 name="Ice-Rec"
 pname="${name} v${ver}"
 #
 
-	msg (){
-    
+    msg (){
 		# Procedure for writing debug messages
 		# params: $1 - message, $2 - level of the message (error, warning, notify)
     
@@ -16,7 +17,6 @@ pname="${name} v${ver}"
     }
 
     stop (){
-    
 		# Procedure for stoping wget-process    
 
 		set +bm;
@@ -33,7 +33,7 @@ pname="${name} v${ver}"
 		kill -9 $wget_pid > /dev/null;
     }
     
-	usage () {
+    usage () {
     	
     	#
 		# Procedure.
@@ -41,7 +41,7 @@ pname="${name} v${ver}"
     	#
 
     	echo >&2 \
-		"usage: $0 -u URL -o DIR [-d debug_level]"
+		"usage: $0 -u URL -o DIR -t duration [-d debug_level]"
 		exit 1;
     }
 
@@ -85,9 +85,17 @@ pname="${name} v${ver}"
 	i=0;
 		while true;
 		do
-			wget -q --retry-connrefused --no-proxy ${URL} -O ${FILE%.???}.${i}.${FILE##*.}
+			file_name="${FILE%.???}.${i}.${FILE##*.}"
+			
+			wget -q --retry-connrefused --no-proxy ${URL} -O ${file_name}
 
-			sleep 1;
+			#remove null-size file
+			[ `du $file_name | awk '{ print $1 }'` -eq 0 ] && {
+			    rm $file_name
+			    msg "File $file_name have zero size. Removed." 1
+			}
+			
+			sleep 5;
 
 			i=$(($i+1));
 			msg "Restart wget. Retry ${i}" 0;
