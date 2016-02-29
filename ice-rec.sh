@@ -87,7 +87,7 @@ pname="${name} v${ver}"
 		do
 			wget -q --retry-connrefused --no-proxy ${URL} -O ${FILE%.???}.${i}.${FILE##*.}
 
-			sleep 5;
+			sleep 1;
 
 			i=$(($i+1));
 			msg "Restart wget. Retry ${i}" 0;
