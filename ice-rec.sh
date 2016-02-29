@@ -1,4 +1,4 @@
-#!/bin/sh -x
+#!/bin/sh
 #
 # Date: 2008_01_15
 # Author: Gleb GByte Poljakov
